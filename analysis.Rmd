@@ -1,0 +1,47 @@
+---
+title: "Reproducible Research: Peer Assessment 2"
+author: Nam D. Nguyen
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+    keep_md: true
+---
+
+Load libraries and set code chunk defaults.
+
+```{r setup, message = FALSE}
+library(readr)
+library(R.utils)
+library(ggplot2)
+library(dplyr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Loading and preprocessing the data
+
+Load the data and display the first 6 rows.
+
+```{r load-data, results = 'markup'}
+setwd("./")
+fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+file <- file.path("data", "storm.csv.bz2")
+data <- file.path("data", "storm.csv")
+
+# Create data directory
+if(!file.exists("data")) {
+  dir.create("data")
+}
+
+# Retrieve data file
+if(!file.exists(data)) {
+  download.file(fileUrl, destfile = file, method = "curl")
+  bunzip2(file, data)
+  dateDownloaded <- date()
+  dateDownloaded
+}
+
+# load data
+df <- read_csv(data)
+head(df)
+```
