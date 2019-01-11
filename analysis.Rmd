@@ -18,7 +18,7 @@ library(dplyr)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Loading and preprocessing the data
+## Data Processing
 
 Load the data and display the first 6 rows.
 
@@ -42,6 +42,16 @@ if(!file.exists(data)) {
 }
 
 # load data
-df <- read_csv(data)
+data <- file.path("data", "sample.csv")
+df <- read_csv(data, col_types = cols(EVTYPE = col_factor()))
 head(df)
+```
+
+## Results
+```{r harmful}
+harm <- df %>%
+  group_by(EVTYPE) %>%
+  summarize(FATALITIES_EV = sum(FATALITIES),
+            INJURIES_EV = sum(INJURIES)) %>%
+  arrange(-FATALITIES_EV, -INJURIES_EV)
 ```
