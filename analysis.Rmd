@@ -103,6 +103,28 @@ if(!file.exists(data_rds)) {
 }
 ```
 
+Next, the damage estimate columns are transformed to apply the magnitude modifier for each observation. The magnitude columns are no longer used, and thus are discarded. This transformation will prepare the damage estimates for statistical analysis.
+
+```{r transform-dmg-est}
+if(!file.exists(data_rds)) {
+  trim <- trim %>%
+    mutate(PROPDMGEXP = case_when(PROPDMGEXP == "H" ~ 100,
+                                  PROPDMGEXP == "K" ~ 1000,
+                                  PROPDMGEXP == "M" ~ 1000000,
+                                  PROPDMGEXP == "B" ~ 1000000000,
+                                  TRUE ~ 1),
+           CROPDMGEXP = case_when(CROPDMGEXP == "K" ~ 1000,
+                                  CROPDMGEXP == "M" ~ 1000000,
+                                  CROPDMGEXP == "B" ~ 1000000000,
+                                  TRUE ~ 1),
+           PROPDMG = PROPDMG * PROPDMGEXP,
+           CROPDMG = CROPDMG * CROPDMGEXP) %>%
+    select(-PROPDMGEXP, -CROPDMGEXP)
+}
+```
+
+Finally, the processed data is saved as an RDS file and loaded for analysis. The final data file size was reduced from a 536 MB uncompressed to a 31 MB RDS file.
+
 ```{r write-load-trim}
 if(!file.exists(data_rds)) {
   write_rds(trim, data_rds)
@@ -112,28 +134,60 @@ df <- read_rds(data_rds)
 str(df)
 ```
 
+## Results
+
+### Most Harmful Weather Event
+
+```
+Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+```
+
+For the first question, the data will be grouped by event type and the fatalities and injuries for each group will be aggregated.
+
 ```{r harm-preprocessing}
 evtype <- df %>%
   group_by(EVTYPE) %>%
   summarize(FATALITIES_SUM = sum(FATALITIES),
             INJURIES_SUM = sum(INJURIES))
+```
 
+Below are the top 11 event types for the most harmful event types. The first table ranks the event types by the total number of fatalities for an event type. The second table is similar to the first table but ranks by total number of injuries.
+
+```{r fatalities-list}
 fatalities <- evtype %>%
   arrange(-FATALITIES_SUM, -INJURIES_SUM) %>%
   head(n = 11)
+kable(fatalities, caption = "Top 11 Events by Total Fatalities")
+```
 
+```{r injuries-list}
 injuries <- evtype %>%
   arrange(-INJURIES_SUM, -FATALITIES_SUM) %>%
   head(n = 11)
-
-tornado <- evtype %>%
-  filter(EVTYPE != "TORNADO" &
-         (FATALITIES_SUM > 0 | INJURIES_SUM > 0)) %>%
-  arrange(-FATALITIES_SUM, -INJURIES_SUM)
+kable(injuries, caption = "Top 11 Events by Total Injuries")
 ```
 
-## Results
-```{r harmful}
+Tornadoes sits at the top of both lists and are by far the most harmful event type.
+
+The two lists share many of the same events, although the order differs. Looking at the differences between the two lists help show the type of events that are cause more fatalities than injuries and vice versa.
+
+```{r harm-fatalities-diff}
+setdiff(fatalities$EVTYPE, injuries$EVTYPE)
+```
+
+For rip currents and avalanche, the number of fatalities exceeds its number of injuries, which suggests that death is more likely than injuries for these events. This relationship is not true for high winds, and its exclusion from the top injury-causing-events list may indicate that, while it causes a large share of fatalities, it's not as injurious as other events.
+
+```{r harm-injuries-diff}
+setdiff(injuries$EVTYPE, fatalities$EVTYPE)
+```
+
+The three items that are on the top injury-causing-events list show several stormy events that result in fewer fatalities when compared to the level of injuries that result.
+
+Finally, to get a better idea of where the events that result in the most fatalities and the ones that cause the most injuries sit in relation to each other, the plot below shows each event's total injuries vs. its total fatalities.
+
+Tornado is excluded from the plot because the order of difference between it and other events makes the magnitude of non-tornado events difficult to discern. Tornadoes, to reiterate, result in the most total fatalities and total injuries, by a large margin.
+
+```{r harm-plot}
 harm <- fatalities %>%
   bind_rows(injuries) %>%
   distinct(EVTYPE, .keep_all = TRUE) %>%
@@ -143,6 +197,8 @@ harm <- fatalities %>%
 ggplot(harm, aes(INJURIES_SUM, FATALITIES_SUM)) +
   geom_point() +
   geom_text_repel(aes(label = EVTYPE)) +
-  theme_minimal() +
-  coord_fixed()
+  labs(title = "Total Injuries vs. Total Fatalities by Event Type",
+       x = "Injuries",
+       y = "Fatalities") +
+  theme_minimal()
 ```
