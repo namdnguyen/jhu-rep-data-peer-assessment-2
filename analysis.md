@@ -8,20 +8,24 @@ output:
     keep_md: true
 ---
 
+## Synopsis
+
+## Data Processing
+
 Load libraries and set code chunk defaults.
 
 
 ```r
 library(readr)
 library(R.utils)
-library(ggplot2)
 library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggrepel)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Data Processing
-
-Load the data and display the first 6 rows.
+First, retrieve the data set, if it does not exist.
 
 
 ```r
@@ -42,39 +46,75 @@ if(!file.exists(data)) {
   dateDownloaded <- date()
   dateDownloaded
 }
+```
 
+Create a trimmed data file with the relevant columns for analysis, if it does not exist. Then, load the trimmed data set and display the first six rows.
+
+
+```r
 # load data
-data <- file.path("data", "sample.csv")
-df <- read_csv(data, col_types = cols(EVTYPE = col_factor()))
+data_rds <- file.path("data", "trim.RDS")
+
+if(!file.exists(data_rds)) {
+  dat <- read_csv(data, col_types = cols(EVTYPE = col_factor(),
+                                         CROPDMGEXP = col_character()))
+  trim <- dat %>%
+    select("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP",
+           "CROPDMG", "CROPDMGEXP")
+  write_rds(trim, data_rds)
+}
+
+df <- read_rds(data_rds)
 head(df)
 ```
 
 ```
-## # A tibble: 6 x 37
-##   STATE__ BGN_DATE BGN_TIME TIME_ZONE COUNTY COUNTYNAME STATE EVTYPE
-##     <dbl> <chr>    <chr>    <chr>      <dbl> <chr>      <chr> <fct> 
-## 1      51 5/24/20… 03:33:0… EST          550 CHESAPEAK… VA    THUND…
-## 2      28 5/20/19… 1608     CST           49 HINDS      MS    TSTM …
-## 3      30 1/3/199… 03:30:0… MST          111 YELLOWSTO… MT    FLASH…
-## 4      51 4/9/199… 06:35:0… EST           83 HALIFAX    VA    TSTM …
-## 5      13 3/2/200… 01:18:0… EST          189 MCDUFFIE   GA    THUND…
-## 6      31 6/20/20… 09:00:0… CST           53 DODGE      NE    FLOOD 
-## # ... with 29 more variables: BGN_RANGE <dbl>, BGN_AZI <lgl>,
-## #   BGN_LOCATI <lgl>, END_DATE <lgl>, END_TIME <lgl>, COUNTY_END <dbl>,
-## #   COUNTYENDN <lgl>, END_RANGE <dbl>, END_AZI <lgl>, END_LOCATI <lgl>,
-## #   LENGTH <dbl>, WIDTH <dbl>, F <dbl>, MAG <dbl>, FATALITIES <dbl>,
-## #   INJURIES <dbl>, PROPDMG <dbl>, PROPDMGEXP <chr>, CROPDMG <dbl>,
-## #   CROPDMGEXP <lgl>, WFO <lgl>, STATEOFFIC <lgl>, ZONENAMES <lgl>,
-## #   LATITUDE <dbl>, LONGITUDE <dbl>, LATITUDE_E <dbl>, LONGITUDE_ <dbl>,
-## #   REMARKS <lgl>, REFNUM <dbl>
+## # A tibble: 6 x 7
+##   EVTYPE  FATALITIES INJURIES PROPDMG PROPDMGEXP CROPDMG CROPDMGEXP
+##   <fct>        <dbl>    <dbl>   <dbl> <chr>        <dbl> <lgl>     
+## 1 TORNADO          0       15    25   K                0 NA        
+## 2 TORNADO          0        0     2.5 K                0 NA        
+## 3 TORNADO          0        2    25   K                0 NA        
+## 4 TORNADO          0        2     2.5 K                0 NA        
+## 5 TORNADO          0        2     2.5 K                0 NA        
+## 6 TORNADO          0        6     2.5 K                0 NA
+```
+
+
+```r
+evtype <- df %>%
+  group_by(EVTYPE) %>%
+  summarize(FATALITIES_SUM = sum(FATALITIES),
+            INJURIES_SUM = sum(INJURIES))
+
+fatalities <- evtype %>%
+  arrange(-FATALITIES_SUM, -INJURIES_SUM) %>%
+  head(n = 11)
+
+injuries <- evtype %>%
+  arrange(-INJURIES_SUM, -FATALITIES_SUM) %>%
+  head(n = 11)
+
+tornado <- evtype %>%
+  filter(EVTYPE != "TORNADO" &
+         (FATALITIES_SUM > 0 | INJURIES_SUM > 0)) %>%
+  arrange(-FATALITIES_SUM, -INJURIES_SUM)
 ```
 
 ## Results
 
 ```r
-harm <- df %>%
-  group_by(EVTYPE) %>%
-  summarize(FATALITIES_EV = sum(FATALITIES),
-            INJURIES_EV = sum(INJURIES)) %>%
-  arrange(-FATALITIES_EV, -INJURIES_EV)
+harm <- fatalities %>%
+  bind_rows(injuries) %>%
+  distinct(EVTYPE, .keep_all = TRUE) %>%
+  filter(EVTYPE != "TORNADO") %>%
+  arrange(-FATALITIES_SUM)
+
+ggplot(harm, aes(INJURIES_SUM, FATALITIES_SUM)) +
+  geom_point() +
+  geom_text_repel(aes(label = EVTYPE)) +
+  theme_minimal() +
+  coord_fixed()
 ```
+
+![](analysis_files/figure-html/harmful-1.png)<!-- -->

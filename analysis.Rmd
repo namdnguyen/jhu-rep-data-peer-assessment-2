@@ -8,6 +8,10 @@ output:
     keep_md: true
 ---
 
+## Synopsis
+
+## Data Processing
+
 Load libraries and set code chunk defaults.
 
 ```{r setup, message = FALSE}
@@ -20,11 +24,9 @@ library(ggrepel)
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Data Processing
+First, retrieve the data set, if it does not exist.
 
-Load the data and display the first 6 rows.
-
-```{r load-data, results = 'markup'}
+```{r get-data}
 setwd("./")
 fileUrl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 file <- file.path("data", "storm.csv.bz2")
@@ -42,18 +44,29 @@ if(!file.exists(data)) {
   dateDownloaded <- date()
   dateDownloaded
 }
+```
 
+Create a trimmed data file with the relevant columns for analysis, if it does not exist. Then, load the trimmed data set and display the first six rows.
+
+```{r load-data, results = 'markup'}
 # load data
-data <- file.path("data", "storm.csv")
-df <- read_csv(data, col_types = cols(EVTYPE = col_factor()))
+data_rds <- file.path("data", "trim.RDS")
+
+if(!file.exists(data_rds)) {
+  dat <- read_csv(data, col_types = cols(EVTYPE = col_factor(),
+                                         CROPDMGEXP = col_character()))
+  trim <- dat %>%
+    select("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP",
+           "CROPDMG", "CROPDMGEXP")
+  write_rds(trim, data_rds)
+}
+
+df <- read_rds(data_rds)
 head(df)
 ```
 
-
 ```{r harm-preprocessing}
 evtype <- df %>%
-  complete.cases()
-
   group_by(EVTYPE) %>%
   summarize(FATALITIES_SUM = sum(FATALITIES),
             INJURIES_SUM = sum(INJURIES))
