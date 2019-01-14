@@ -46,7 +46,9 @@ if(!file.exists(data)) {
 }
 ```
 
-Create a trimmed data file with the relevant columns for analysis, if it does not exist. Then, load the trimmed data set and display the first six rows.
+To aid in quicker exploration and analysis, we create a trimmed data file with the relevant columns for analysis, if it does not exist. Then, we load the trimmed data set and display the first six rows.
+
+To optimize the size of the trimmed data file, columns for property and crop damage estimate magnitudes, i.e. "PROPDMGEXP" and "CROPDMGEXP", are first cleaned and saved as factors, instead of character.
 
 ```{r load-data, results = 'markup'}
 # load data
@@ -54,15 +56,60 @@ data_rds <- file.path("data", "trim.RDS")
 
 if(!file.exists(data_rds)) {
   dat <- read_csv(data, col_types = cols(EVTYPE = col_factor(),
+                                         PROPDMGEXP = col_character(),
                                          CROPDMGEXP = col_character()))
+  # keep relevant columns
   trim <- dat %>%
     select("EVTYPE", "FATALITIES", "INJURIES", "PROPDMG", "PROPDMGEXP",
            "CROPDMG", "CROPDMGEXP")
+}
+```
+
+Taking a first look at the data set.
+
+```{r summary}
+str(trim, give.attr = FALSE)
+summary(trim)
+```
+
+Recode the damage estimate magnitude columns by looking at the set of possible recorded values for each.
+
+```{r check-dmgexp}
+if(!file.exists(data_rds)) {
+  message("Possible values for Property Damage Estimate Magnitude")
+  print(unique(dat$PROPDMGEXP))
+  message("")
+  message("Possible values for Crop Damage Estimate Magnitude")
+  print(unique(dat$CROPDMGEXP))
+}
+```
+
+The documentation for the data set does not explain values, aside from "K", "M", and "B", which correspond to thousands, millions, and billions. These values are used to indicate the magnitude for the property and crop damage estimates columns. "H" appears to indicate hundreds, if the notation is followed.
+
+All other values will be recoded to "1" to indicate "identity" or no magnitude modifier for the damage estimates. The estimate magnitude columns will then be save as factors.
+
+
+```{r damage-clean}
+valid_mag <- c("H", "K", "M", "B")
+
+if(!file.exists(data_rds)) {
+  trim <- trim %>%
+    mutate(PROPDMGEXP = toupper(PROPDMGEXP),
+           CROPDMGEXP = toupper(CROPDMGEXP),
+           PROPDMGEXP = ifelse(PROPDMGEXP %in% valid_mag, PROPDMGEXP, 1),
+           CROPDMGEXP = ifelse(CROPDMGEXP %in% valid_mag, CROPDMGEXP, 1),
+           PROPDMGEXP = as.factor(PROPDMGEXP),
+           CROPDMGEXP = as.factor(CROPDMGEXP))
+}
+```
+
+```{r write-load-trim}
+if(!file.exists(data_rds)) {
   write_rds(trim, data_rds)
 }
 
 df <- read_rds(data_rds)
-head(df)
+str(df)
 ```
 
 ```{r harm-preprocessing}
