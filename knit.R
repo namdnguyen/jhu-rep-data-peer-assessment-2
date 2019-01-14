@@ -7,4 +7,4 @@ library(rmarkdown)
 library(prettydoc)
 library(knitr)
 
-rmarkdown::render("analysis.Rmd")
+rmarkdown::render("weather_impact.Rmd")
