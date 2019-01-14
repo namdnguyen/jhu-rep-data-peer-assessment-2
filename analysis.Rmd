@@ -68,8 +68,10 @@ if(!file.exists(data_rds)) {
 Taking a first look at the data set.
 
 ```{r summary}
-str(trim, give.attr = FALSE)
-summary(trim)
+if(!file.exists("data")) {
+  str(trim, give.attr = FALSE)
+  summary(trim)
+}
 ```
 
 Recode the damage estimate magnitude columns by looking at the set of possible recorded values for each.
@@ -136,10 +138,11 @@ str(df)
 
 ## Results
 
-### Most Harmful Weather Event
+### Most Harmful Weather Events
 
 ```
-Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
+Across the United States, which types of events (as indicated in the EVTYPE
+variable) are most harmful with respect to population health?
 ```
 
 For the first question, the data will be grouped by event type and the fatalities and injuries for each group will be aggregated.
@@ -187,7 +190,7 @@ Finally, to get a better idea of where the events that result in the most fatali
 
 Tornado is excluded from the plot because the order of difference between it and other events makes the magnitude of non-tornado events difficult to discern. Tornadoes, to reiterate, result in the most total fatalities and total injuries, by a large margin.
 
-```{r harm-plot}
+```{r harm-plot, fig.width = 10}
 harm <- fatalities %>%
   bind_rows(injuries) %>%
   distinct(EVTYPE, .keep_all = TRUE) %>%
@@ -202,3 +205,58 @@ ggplot(harm, aes(INJURIES_SUM, FATALITIES_SUM)) +
        y = "Fatalities") +
   theme_minimal()
 ```
+
+### Most Economically Damaging Weather Events
+
+```
+Across the United States, which types of events have the greatest
+economic consequences?
+```
+
+The analysis for greatest economic consequences is similar to the one done for most harmful to human population. See that section for additional details.
+
+The analysis on economic impact will aggregate the total property damage and crop damage by event type.
+
+```{r damage-preprocessing}
+damage <- df %>%
+  group_by(EVTYPE) %>%
+  summarize(PROPDMG_SUM = sum(PROPDMG),
+            CROPDMG_SUM = sum(CROPDMG))
+```
+
+Below are the lists ranking the top ten event types that cause the most property damage and the top ten event types that cause the most crop damage.
+
+```{r prop-damage-list}
+prop_damage <- damage %>%
+  arrange(-PROPDMG_SUM, -CROPDMG_SUM) %>%
+  head(n = 10)
+kable(prop_damage, caption = "Top 10 Events by Total Property Damage Estimates")
+```
+
+```{r crop-damage-list}
+crop_damage <- damage %>%
+  arrange(-CROPDMG_SUM, -PROPDMG_SUM) %>%
+  head(n = 10)
+kable(crop_damage, caption = "Top 10 Events by Total Crop Damage Estimates")
+```
+
+The event types that appear to be the most economically devastating for both property and events are floods and hurricanes.
+
+The plot below will give a better sense of the top event types along both property damage and crop damage dimensions.
+
+```{r damage-plot, fig.width = 10}
+damage_merged <- prop_damage %>%
+  bind_rows(crop_damage) %>%
+  distinct(EVTYPE, .keep_all = TRUE) %>%
+  arrange(-PROPDMG_SUM)
+
+ggplot(damage_merged , aes(PROPDMG_SUM, CROPDMG_SUM)) +
+  geom_point() +
+  geom_text_repel(aes(label = EVTYPE)) +
+  labs(title = "Total Property Damage vs. Total Crop Damage by Event Type",
+       x = "Property Damage",
+       y = "Crop Damage") +
+  theme_minimal()
+```
+
+By far, the most economically damaging event for crops are droughts, while the most economically damaging event for property is flood. As shown in the lists above, floods are also the second-most economically damaging events for crops.
