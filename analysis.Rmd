@@ -10,6 +10,10 @@ output:
 
 ## Synopsis
 
+This report analyzes the NOAA storm data set that includes data on severe weather events from the year 1950 and end in November 2011. The two questions analyzed are: 1) which weather events cause the most harm with respect to population health, and 2) which weather events cause the greatest economic consequences. Regarding harm to population health, the total resulting fatalities and total resulting injuries are aggregated for each event type. Regarding economic consequences, the total estimated damages to property and the total estimated damages to crop are aggregated for each event type.
+
+The findings suggest that tornadoes are the most harmful event type overall and by a wide margin. For economic impact, floods and hurricanes result in the most damage overall. Droughts result in the largest damage to crops but not much property damage. Floods also result in the largest amount of property damage, by a wide margin.
+
 ## Data Processing
 
 Load libraries and set code chunk defaults.
